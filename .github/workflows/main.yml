@@ -1,0 +1,57 @@
+
+name: Build AI Translator 360 APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Prepare Android project
+        run: |
+          mkdir -p app/src/main/assets
+          mkdir -p app/src/main/java/com/aitranslator360/app
+          mv AndroidManifest.xml app/src/main/AndroidManifest.xml
+          mv MainActivity.java app/src/main/java/com/aitranslator360/app/MainActivity.java
+          mv index.html app/src/main/assets/index.html
+          cat > app/build.gradle <<'EOF'
+          plugins {
+              id 'com.android.application'
+          }
+          android {
+              namespace 'com.aitranslator360.app'
+              compileSdk 35
+              defaultConfig {
+                  applicationId 'com.aitranslator360.app'
+                  minSdk 23
+                  targetSdk 28
+                  versionCode 1
+                  versionName '1.0.0'
+              }
+          }
+          EOF
+
+      - name: Build APK
+        run: gradle :app:assembleDebug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: AI-Translator-360-APK
+          path: app/build/outputs/apk/debug/app-debug.apk
+          
