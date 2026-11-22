@@ -4,44 +4,40 @@ name: Build AI Translator 360 APK
 on:
   workflow_dispatch:
   push:
-    branches:
-      - main
+    branches: [main]
 
 permissions:
   contents: read
 
 jobs:
   build:
-    name: Build Android APK
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout source
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Java 17
+      - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
 
-      - name: Set up Android SDK
+      - name: Install Android SDK
         uses: android-actions/setup-android@v3
+        continue-on-error: false
 
-      - name: Accept Android SDK licenses
+      - name: Accept SDK licenses
         run: |
+          mkdir -p "$ANDROID_HOME/licenses"
           yes | sdkmanager --licenses || true
-          sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+          sdkmanager --install "platforms;android-35" "build-tools;35.0.0"
 
-      - name: Prepare Android app
+      - name: Prepare Android files
         run: |
           set -e
           mkdir -p app/src/main/assets
           mkdir -p app/src/main/java/com/aitranslator360/app
-
-          test -f AndroidManifest.xml
-          test -f MainActivity.java
-          test -f index.html
 
           cp AndroidManifest.xml app/src/main/AndroidManifest.xml
           cp MainActivity.java app/src/main/java/com/aitranslator360/app/MainActivity.java
@@ -64,7 +60,29 @@ jobs:
           }
           EOF
 
-      - name: Set up Gradle
+      - name: Configure Gradle
+        run: |
+          cat > settings.gradle <<'EOF'
+          pluginManagement {
+              repositories {
+                  google()
+                  mavenCentral()
+                  gradlePluginPortal()
+              }
+          }
+          dependencyResolutionManagement {
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+          }
+          rootProject.name = 'AI-Translator-360'
+          include ':app'
+          EOF
+
+          echo "plugins { id 'com.android.application' version '8.6.1' apply false }" > build.gradle
+
+      - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.7'
@@ -77,6 +95,4 @@ jobs:
         with:
           name: AI-Translator-360-APK-v2
           path: app/build/outputs/apk/debug/app-debug.apk
-          if-no-files-found: error
-          retention-days: 7
           
