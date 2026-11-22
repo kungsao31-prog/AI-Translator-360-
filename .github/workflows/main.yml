@@ -4,19 +4,22 @@ name: Build AI Translator 360 APK
 on:
   workflow_dispatch:
   push:
-    branches: [main]
+    branches:
+      - main
 
 permissions:
   contents: read
 
 jobs:
   build:
+    name: Build Android APK
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout
+      - name: Checkout source
         uses: actions/checkout@v4
 
-      - name: Set up Java
+      - name: Set up Java 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -25,13 +28,25 @@ jobs:
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Prepare Android project
+      - name: Accept Android SDK licenses
         run: |
+          yes | sdkmanager --licenses || true
+          sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Prepare Android app
+        run: |
+          set -e
           mkdir -p app/src/main/assets
           mkdir -p app/src/main/java/com/aitranslator360/app
-          mv AndroidManifest.xml app/src/main/AndroidManifest.xml
-          mv MainActivity.java app/src/main/java/com/aitranslator360/app/MainActivity.java
-          mv index.html app/src/main/assets/index.html
+
+          test -f AndroidManifest.xml
+          test -f MainActivity.java
+          test -f index.html
+
+          cp AndroidManifest.xml app/src/main/AndroidManifest.xml
+          cp MainActivity.java app/src/main/java/com/aitranslator360/app/MainActivity.java
+          cp index.html app/src/main/assets/index.html
+
           cat > app/build.gradle <<'EOF'
           plugins {
               id 'com.android.application'
@@ -49,12 +64,19 @@ jobs:
           }
           EOF
 
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
+
       - name: Build APK
-        run: gradle :app:assembleDebug
+        run: gradle --no-daemon :app:assembleDebug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: AI-Translator-360-APK-v2
           path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 7
           
